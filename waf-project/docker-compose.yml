@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+
+  # ── WAF Engine + Admin API ────────────────────────────────────────────────
+  waf:
+    build: ./waf
+    container_name: waf_engine
+    ports:
+      - "8080:8080"    # WAF proxy  →  send your HTTP traffic here
+      - "5000:5000"    # Admin API  →  dashboard connects here
+    environment:
+      - ORIGIN_URL=http://dvwa:80
+      - PROXY_PORT=8080
+      - API_PORT=5000
+      - JWT_SECRET=change-me-to-a-long-random-string-in-production
+      - DB_PATH=/data/waf.db
+      - BLOCK_THRESHOLD=5
+    volumes:
+      - waf_data:/data      # persist the SQLite database
+    depends_on:
+      - dvwa
+    restart: unless-stopped
+
+  # ── Admin Dashboard (React) ────────────────────────────────────────────────
+  dashboard:
+    build: ./dashboard
+    container_name: waf_dashboard
+    ports:
+      - "3000:80"           # Open http://localhost:3000 in your browser
+    depends_on:
+      - waf
+    restart: unless-stopped
+
+  # ── DVWA: Damn Vulnerable Web App (the target server the WAF protects) ─────
+  dvwa:
+    image: vulnerables/web-dvwa
+    container_name: dvwa_target
+    ports:
+      - "8888:80"           # Access DVWA directly (WITHOUT WAF) for comparison
+    restart: unless-stopped
+
+volumes:
+  waf_data:
